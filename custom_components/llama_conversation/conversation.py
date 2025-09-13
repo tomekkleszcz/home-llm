@@ -412,14 +412,27 @@ class LocalLLMAgent(ConversationEntity, AbstractConversationAgent):
                 response=intent_response, conversation_id=user_input.conversation_id
             )
 
-        # When using Harmony prompt template, extract the final channel message
+        # When using Harmony prompt template, extract tool calls and the final channel message
+        harmony_tool_calls = []
+        raw_response = response
         if prompt_template == "harmony":
             try:
-                harmony_match = re.search(r"<\|start\|>assistant<\|channel\|>final<\|message\|>(.*?)(?:<\|end\|>|$)", response, flags=re.DOTALL)
-                if harmony_match:
-                    response = harmony_match.group(1).strip()
+                # Extract final content
+                harmony_final_match = re.search(r"<\|start\|>assistant<\|channel\|>final<\|message\|>(.*?)(?:<\|end\|>|$)", raw_response, flags=re.DOTALL)
+                if harmony_final_match:
+                    response = harmony_final_match.group(1).strip()
+                # Extract tool calls
+                tool_pattern = re.compile(r"<\|start\|>assistant<\|channel\|>commentary to=functions\.([A-Za-z0-9_\.]+)[\s\S]*?<\|message\|>(\{[\s\S]*?\})(?:<\|call\||<\|end\|>)", re.MULTILINE)
+                for func_name, args_json in tool_pattern.findall(raw_response):
+                    try:
+                        harmony_tool_calls.append({
+                            "name": func_name,
+                            "arguments": json.loads(args_json)
+                        })
+                    except Exception as ex:
+                        _LOGGER.debug(f"Failed to parse Harmony tool JSON for {func_name}: {ex}")
             except Exception:
-                _LOGGER.debug("Failed to parse Harmony response; using raw response text")
+                _LOGGER.debug("Failed parsing Harmony response; using raw response text")
 
         # remove end of text token if it was returned
         response = response.replace(template_desc["assistant"]["suffix"], "")
@@ -445,9 +458,59 @@ class LocalLLMAgent(ConversationEntity, AbstractConversationAgent):
         tool_response = None
         # parse response
         to_say = service_call_pattern.sub("", response.strip())
-        tool_response = None
-        for block in service_call_pattern.findall(response.strip()):
-            parsed_tool_call: dict = json.loads(block)
+
+        # Prefer Harmony tool calls when present; otherwise fall back to legacy regex parsing
+        parsed_tool_calls_iterable = harmony_tool_calls if len(harmony_tool_calls) > 0 else [ json.loads(block) for block in service_call_pattern.findall(response.strip()) ]
+        for parsed_tool_call in parsed_tool_calls_iterable:
+            # Normalize to { name, arguments }
+            is_harmony_call = len(harmony_tool_calls) > 0
+            if not is_harmony_call:
+                # legacy path already a dict (either HA-specific or generic)
+                pass
+            else:
+                # If using the Home LLM API, map Harmony function-style calls to HassCallService
+                if llm_api and llm_api.api.id == HOME_LLM_API_ID:
+                    func_name = parsed_tool_call.get("name", "")
+                    args = parsed_tool_call.get("arguments", {})
+                    lowered = func_name.lower()
+                    mapped = None
+                    # Helper to extract entity_id
+                    entity_id = args.get("name") or args.get("entity_id") or args.get("target_device")
+                    if entity_id and "." in entity_id:
+                        domain = entity_id.split(".")[0]
+                    else:
+                        domain = None
+                    if lowered in ["hassturnon", "homeassistant.turn_on"] and domain:
+                        mapped = {
+                            "service": f"{domain}.turn_on",
+                            "target_device": entity_id,
+                        }
+                    elif lowered in ["hassturnoff", "homeassistant.turn_off"] and domain:
+                        mapped = {
+                            "service": f"{domain}.turn_off",
+                            "target_device": entity_id,
+                        }
+                    elif lowered in ["hasstoggle", "homeassistant.toggle"] and domain:
+                        mapped = {
+                            "service": f"{domain}.toggle",
+                            "target_device": entity_id,
+                        }
+                    elif lowered in ["hasscallservice", "homeassistant.call_service"]:
+                        # Expect direct pass-through fields
+                        if "service" in args and ("target_device" in args or "name" in args or "entity_id" in args):
+                            mapped = {
+                                "service": args.get("service"),
+                                "target_device": args.get("target_device") or args.get("name") or args.get("entity_id"),
+                            }
+                    # Attach optional arguments if present
+                    if mapped is not None:
+                        for optional_key in [
+                            "rgb_color", "brightness", "temperature", "humidity",
+                            "fan_mode", "hvac_mode", "preset_mode", "duration", "item"
+                        ]:
+                            if optional_key in args:
+                                mapped[optional_key] = args[optional_key]
+                        parsed_tool_call = mapped
 
             if llm_api.api.id == HOME_LLM_API_ID:
                 schema_to_validate = vol.Schema({
@@ -470,6 +533,7 @@ class LocalLLMAgent(ConversationEntity, AbstractConversationAgent):
                 })
 
             try:
+                # For Harmony, parsed_tool_call already has name/arguments
                 schema_to_validate(parsed_tool_call)
             except vol.Error as ex:
                 _LOGGER.info(f"LLM produced an improperly formatted response: {repr(ex)}")
@@ -483,7 +547,7 @@ class LocalLLMAgent(ConversationEntity, AbstractConversationAgent):
                     response=intent_response, conversation_id=user_input.conversation_id
                 )
 
-            _LOGGER.info(f"calling tool: {block}")
+            _LOGGER.info(f"calling tool: {parsed_tool_call}")
 
             # try to fix certain arguments
             args_dict = parsed_tool_call if llm_api.api.id == HOME_LLM_API_ID else parsed_tool_call["arguments"]
