@@ -142,6 +142,7 @@ PROMPT_TEMPLATE_NONE = "no_prompt_template"
 PROMPT_TEMPLATE_ZEPHYR = "zephyr"
 PROMPT_TEMPLATE_ZEPHYR2 = "zephyr2"
 PROMPT_TEMPLATE_ZEPHYR3 = "zephyr3"
+PROMPT_TEMPLATE_HARMONY = "harmony"
 DEFAULT_PROMPT_TEMPLATE = PROMPT_TEMPLATE_CHATML
 PROMPT_TEMPLATE_DESCRIPTIONS = {
     PROMPT_TEMPLATE_CHATML: {
@@ -213,6 +214,13 @@ PROMPT_TEMPLATE_DESCRIPTIONS = {
         "assistant": { "prefix": "<|start_header_id|>assistant<|end_header_id|>\n\n", "suffix": "<|eot_id|>"},
         "chain_of_thought": { "prefix": "<think>", "suffix": "</think>"},
         "generation_prompt": "<|start_header_id|>assistant<|end_header_id|>\n\n"
+    },
+    PROMPT_TEMPLATE_HARMONY: {
+        "system": { "prefix": "<|start|>system<|message|>", "suffix": "<|end|>" },
+        "user": { "prefix": "<|start|>user<|message|>", "suffix": "<|end|>" },
+        "assistant": { "prefix": "<|start|>assistant<|message|>", "suffix": "<|end|>" },
+        "chain_of_thought": { "prefix": "<think>", "suffix": "</think>"},
+        "generation_prompt": "<|start|>assistant<|message|>"
     }
 }
 CONF_TOOL_FORMAT = "tool_format"
