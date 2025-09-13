@@ -219,6 +219,7 @@ PROMPT_TEMPLATE_DESCRIPTIONS = {
         "system": { "prefix": "<|start|>system<|message|>", "suffix": "<|end|>" },
         "user": { "prefix": "<|start|>user<|message|>", "suffix": "<|end|>" },
         "assistant": { "prefix": "<|start|>assistant<|message|>", "suffix": "<|end|>" },
+        "tool": { "prefix": "<|start|>tool<|message|>", "suffix": "<|end|>" },
         "chain_of_thought": { "prefix": "<think>", "suffix": "</think>"},
         "generation_prompt": "<|start|>assistant<|message|>"
     }
