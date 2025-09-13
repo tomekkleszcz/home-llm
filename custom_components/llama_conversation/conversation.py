@@ -412,6 +412,15 @@ class LocalLLMAgent(ConversationEntity, AbstractConversationAgent):
                 response=intent_response, conversation_id=user_input.conversation_id
             )
 
+        # When using Harmony prompt template, extract the final channel message
+        if prompt_template == "harmony":
+            try:
+                harmony_match = re.search(r"<\|start\|>assistant<\|channel\|>final<\|message\|>(.*?)(?:<\|end\|>|$)", response, flags=re.DOTALL)
+                if harmony_match:
+                    response = harmony_match.group(1).strip()
+            except Exception:
+                _LOGGER.debug("Failed to parse Harmony response; using raw response text")
+
         # remove end of text token if it was returned
         response = response.replace(template_desc["assistant"]["suffix"], "")
 
