@@ -261,6 +261,8 @@ DEFAULT_PROMPT_CACHING_INTERVAL = 30
 CONF_SERVICE_CALL_REGEX = "service_call_regex"
 DEFAULT_SERVICE_CALL_REGEX = r"<functioncall> ({[\S \t]*})"
 FINE_TUNED_SERVICE_CALL_REGEX = r"```homeassistant\n([\S \t\n]*?)```"
+# Matches Harmony commentary tool calls and captures the JSON arguments
+HARMONY_SERVICE_CALL_REGEX = r"<\|start\|>assistant<\|channel\|>commentary\\s+to=(?:functions\\.)?[A-Za-z0-9_\\.]+[\s\S]*?<\|message\|>({[\s\S]*?})(?:<\|call\||<\|end\|>)"
 CONF_REMOTE_USE_CHAT_ENDPOINT = "remote_use_chat_endpoint"
 DEFAULT_REMOTE_USE_CHAT_ENDPOINT = False
 CONF_TEXT_GEN_WEBUI_CHAT_MODE = "text_generation_webui_chat_mode"
@@ -395,6 +397,11 @@ OPTIONS_OVERRIDES = {
     "phi-3": {
         CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS,
         CONF_PROMPT_TEMPLATE: PROMPT_TEMPLATE_ZEPHYR3,
+    },
+    "gpt-oss": {
+        CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS,
+        CONF_PROMPT_TEMPLATE: PROMPT_TEMPLATE_HARMONY,
+        CONF_SERVICE_CALL_REGEX: HARMONY_SERVICE_CALL_REGEX,
     },
     "command-r": {
         CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS,

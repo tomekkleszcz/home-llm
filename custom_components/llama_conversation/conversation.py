@@ -418,11 +418,11 @@ class LocalLLMAgent(ConversationEntity, AbstractConversationAgent):
         if prompt_template == "harmony":
             try:
                 # Extract final content
-                harmony_final_match = re.search(r"<\|start\|>assistant<\|channel\|>final<\|message\|>(.*?)(?:<\|end\|>|$)", raw_response, flags=re.DOTALL)
+                harmony_final_match = re.search(r"(?:<\|start\|>)?assistant<\|channel\|>final<\|message\|>(.*?)(?:<\|end\|>|$)", raw_response, flags=re.DOTALL)
                 if harmony_final_match:
                     response = harmony_final_match.group(1).strip()
                 # Extract tool calls
-                tool_pattern = re.compile(r"<\|start\|>assistant<\|channel\|>commentary to=functions\.([A-Za-z0-9_\.]+)[\s\S]*?<\|message\|>(\{[\s\S]*?\})(?:<\|call\||<\|end\|>)", re.MULTILINE)
+                tool_pattern = re.compile(r"<\|start\|>assistant<\|channel\|>commentary\s+to=(?:functions\.)?([A-Za-z0-9_\.]+)[\s\S]*?<\|message\|>(\{[\s\S]*?\})(?:<\|call\||<\|end\|>)", re.MULTILINE)
                 for func_name, args_json in tool_pattern.findall(raw_response):
                     try:
                         harmony_tool_calls.append({
